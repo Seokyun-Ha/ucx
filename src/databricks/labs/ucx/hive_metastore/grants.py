@@ -124,7 +124,12 @@ class Grant:
             actions.remove("OWN")
             statements.append(self._set_owner_sql(object_type, object_key))
         if actions:
-            statements.append(self._apply_grant_sql(", ".join(actions), object_type, object_key))
+            for action in actions:
+                if "DENIED" in action:
+                    deny_action = action.replace("DENIED_", "")
+                    statements.append(self._apply_deny_sql(deny_action, object_type, object_key))
+                else:
+                    statements.append(self._apply_grant_sql(action, object_type, object_key))
         return statements
 
     def hive_revoke_sql(self) -> str:
@@ -136,6 +141,9 @@ class Grant:
 
     def _apply_grant_sql(self, action_type, object_type, object_key):
         return f"GRANT {action_type} ON {object_type} {escape_sql_identifier(object_key)} TO `{self.principal}`"
+
+    def _apply_deny_sql(self, action_type, object_type, object_key):
+        return f"DENY {action_type} ON {object_type} {escape_sql_identifier(object_key)} TO `{self.principal}`"
 
     def _uc_action(self, action_type):
         def inner(object_type, object_key):
